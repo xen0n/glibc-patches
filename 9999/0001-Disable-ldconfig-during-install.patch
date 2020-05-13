@@ -1,7 +1,7 @@
-From c42be799cdc293c6f454e26124f30f87d9bb69a9 Mon Sep 17 00:00:00 2001
+From 8831dc046682b2f3fca8a0dc831e53afdebd4469 Mon Sep 17 00:00:00 2001
 From: Mike Frysinger <vapier@gentoo.org>
 Date: Wed, 1 Apr 2009 02:15:48 -0400
-Subject: [PATCH 01/12] Gentoo: disable ldconfig during install
+Subject: [PATCH 1/5] Disable ldconfig during install
 
 Do not bother running ldconfig on DESTDIR.  It's a waste of time as we
 won't use the result (portage will rebuild the cache after install).
@@ -15,7 +15,7 @@ https://bugs.gentoo.org/431038
  1 file changed, 1 insertion(+)
 
 diff --git a/Makefile b/Makefile
-index 8f0a93aceb..7c3887d5c4 100644
+index 6dcfe40c25..68259babda 100644
 --- a/Makefile
 +++ b/Makefile
 @@ -116,6 +116,7 @@ install-symbolic-link: subdir_install

@@ -1,15 +1,34 @@
-From 96f7387cdee162005d2373cbdcd1f7b65dfccd2c Mon Sep 17 00:00:00 2001
-From: "Andreas K. Huettel" <dilfridge@gentoo.org>
-Date: Sat, 21 Mar 2020 15:54:14 +0100
-Subject: [PATCH 10/12] Gentoo: Adapt tests to /etc/mail/alias location
+From dbe134e9eed77bfbbbbf80fa97f2b02b869bcf9c Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Andreas=20K=2E=20H=C3=BCttel?= <dilfridge@gentoo.org>
+Date: Mon, 22 Oct 2018 22:34:13 +0200
+Subject: [PATCH 3/5] Adapt to Gentoo-specific /etc/mail/aliases
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 
-Signed-off-by: Andreas K. Huettel <dilfridge@gentoo.org>
-(cherry picked from commit 03fb405d759b9806fa150813f04dfe1aaa658ac6)
+Patch by pacho2
+
+Signed-off-by: Andreas K. Hüttel <dilfridge@gentoo.org>
+(cherry picked from commit 4e616cda056f471b799beba2b1cedc787ad4ecc0)
 ---
+ nss/nss_files/files-alias.c    |  2 +-
  nss/tst-nss-files-alias-leak.c | 18 +++++++++---------
  support/support_chroot.c       |  8 +++++++-
- 2 files changed, 16 insertions(+), 10 deletions(-)
+ 3 files changed, 17 insertions(+), 11 deletions(-)
 
+diff --git a/nss/nss_files/files-alias.c b/nss/nss_files/files-alias.c
+index 6aff7b4c10..bb6d9b5765 100644
+--- a/nss/nss_files/files-alias.c
++++ b/nss/nss_files/files-alias.c
+@@ -49,7 +49,7 @@ internal_setent (FILE **stream)
+ 
+   if (*stream == NULL)
+     {
+-      *stream = fopen ("/etc/aliases", "rce");
++      *stream = fopen ("/etc/mail/aliases", "rce");
+ 
+       if (*stream == NULL)
+ 	status = errno == EAGAIN ? NSS_STATUS_TRYAGAIN : NSS_STATUS_UNAVAIL;
 diff --git a/nss/tst-nss-files-alias-leak.c b/nss/tst-nss-files-alias-leak.c
 index daebbf4ed4..095bb753a6 100644
 --- a/nss/tst-nss-files-alias-leak.c
