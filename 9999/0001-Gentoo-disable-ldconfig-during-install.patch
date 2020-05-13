@@ -1,0 +1,31 @@
+From c42be799cdc293c6f454e26124f30f87d9bb69a9 Mon Sep 17 00:00:00 2001
+From: Mike Frysinger <vapier@gentoo.org>
+Date: Wed, 1 Apr 2009 02:15:48 -0400
+Subject: [PATCH 01/12] Gentoo: disable ldconfig during install
+
+Do not bother running ldconfig on DESTDIR.  It's a waste of time as we
+won't use the result (portage will rebuild the cache after install).
+Also, the Gentoo sandbox does not currently catch chroot() behavior so
+we end up (incorrectly) flagging it as a violation as a write to /etc.
+
+http://sourceware.org/ml/libc-alpha/2012-08/msg00118.html
+https://bugs.gentoo.org/431038
+---
+ Makefile | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Makefile b/Makefile
+index 8f0a93aceb..7c3887d5c4 100644
+--- a/Makefile
++++ b/Makefile
+@@ -116,6 +116,7 @@ install-symbolic-link: subdir_install
+ 	rm -f $(symbolic-link-list)
+ 
+ install:
++dont-bother-with-destdir:
+ 	-test ! -x $(elf-objpfx)ldconfig || LC_ALL=C \
+ 	  $(elf-objpfx)ldconfig $(addprefix -r ,$(install_root)) \
+ 				$(slibdir) $(libdir)
+-- 
+2.26.2
+

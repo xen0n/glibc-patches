@@ -1,0 +1,144 @@
+From 8c012e90bf4645d37cb022d273d814b3fbc33a94 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Andreas=20K=2E=20H=C3=BCttel?= <dilfridge@gentoo.org>
+Date: Mon, 11 Sep 2017 13:14:46 +0200
+Subject: [PATCH 05/12] Gentoo: disable tests that fail only in sandbox
+
+---
+ elf/Makefile                     | 16 +---------------
+ io/Makefile                      |  2 +-
+ nptl/Makefile                    |  7 +++++--
+ posix/Makefile                   |  4 ++--
+ resolv/Makefile                  |  2 --
+ sysdeps/unix/sysv/linux/Makefile |  2 +-
+ 6 files changed, 10 insertions(+), 23 deletions(-)
+
+diff --git a/elf/Makefile b/elf/Makefile
+index da689a2c7b..dcf29d47b9 100644
+--- a/elf/Makefile
++++ b/elf/Makefile
+@@ -413,8 +413,7 @@ tests-special += $(objpfx)order-cmp.out $(objpfx)tst-array1-cmp.out \
+ 		 $(objpfx)tst-array4-cmp.out $(objpfx)tst-array5-cmp.out \
+ 		 $(objpfx)tst-array5-static-cmp.out $(objpfx)order2-cmp.out \
+ 		 $(objpfx)tst-initorder-cmp.out \
+-		 $(objpfx)tst-initorder2-cmp.out $(objpfx)tst-unused-dep.out \
+-		 $(objpfx)tst-unused-dep-cmp.out
++		 $(objpfx)tst-initorder2-cmp.out
+ endif
+ 
+ check-abi: $(objpfx)check-abi-ld.out
+@@ -1461,19 +1460,6 @@ $(objpfx)tst-relsort1mod2.so: $(libm)
+ $(objpfx)tst-relsort1.out: $(objpfx)tst-relsort1mod1.so \
+ 			   $(objpfx)tst-relsort1mod2.so
+ 
+-$(objpfx)tst-unused-dep.out: $(objpfx)testobj1.so
+-	$(test-wrapper-env) \
+-	LD_TRACE_LOADED_OBJECTS=1 \
+-	LD_DEBUG=unused \
+-	LD_PRELOAD= \
+-	$(rtld-prefix) \
+-	  $< > $@; \
+-	$(evaluate-test)
+-
+-$(objpfx)tst-unused-dep-cmp.out: $(objpfx)tst-unused-dep.out
+-	cmp $< /dev/null > $@; \
+-	$(evaluate-test)
+-
+ $(objpfx)tst-audit11.out: $(objpfx)tst-auditmod11.so $(objpfx)tst-audit11mod1.so
+ $(objpfx)tst-audit11: $(libdl)
+ tst-audit11-ENV = LD_AUDIT=$(objpfx)tst-auditmod11.so
+diff --git a/io/Makefile b/io/Makefile
+index cf380f3516..b6fe301f77 100644
+--- a/io/Makefile
++++ b/io/Makefile
+@@ -73,7 +73,7 @@ tests		:= test-utime test-stat test-stat2 test-lfs tst-getcwd \
+ 		   tst-mknodat tst-mkfifoat tst-ttyname_r bug-ftw5 \
+ 		   tst-posix_fallocate tst-posix_fallocate64 \
+ 		   tst-fts tst-fts-lfs tst-open-tmpfile \
+-		   tst-copy_file_range tst-getcwd-abspath tst-lockf \
++		   tst-getcwd-abspath tst-lockf \
+ 		   tst-ftw-lnk tst-file_change_detection tst-lchmod
+ 
+ # Likewise for statx, but we do not need static linking here.
+diff --git a/nptl/Makefile b/nptl/Makefile
+index e554a3898d..8373b6989d 100644
+--- a/nptl/Makefile
++++ b/nptl/Makefile
+@@ -282,7 +282,7 @@ tests = tst-attr2 tst-attr3 tst-default-attr \
+ 	tst-atfork1 \
+ 	tst-cancel1 tst-cancel2 tst-cancel3 tst-cancel4 tst-cancel4_1 \
+ 	tst-cancel4_2 tst-cancel5 \
+-	tst-cancel6 tst-cancel7 tst-cancel8 tst-cancel9 tst-cancel10 \
++	tst-cancel6 tst-cancel8 tst-cancel9 tst-cancel10 \
+ 	tst-cancel11 tst-cancel12 tst-cancel13 tst-cancel14 tst-cancel15 \
+ 	tst-cancel16 tst-cancel17 tst-cancel18 tst-cancel19 tst-cancel20 \
+ 	tst-cancel21 tst-cancel22 tst-cancel23 tst-cancel24 \
+@@ -319,6 +319,9 @@ tests = tst-attr2 tst-attr3 tst-default-attr \
+ 	tst-robust-fork tst-create-detached tst-memstream \
+ 	tst-thread-exit-clobber tst-minstack-cancel tst-minstack-exit \
+ 	tst-minstack-throw \
++	tst-cnd-basic tst-mtx-trylock tst-cnd-broadcast \
++	tst-cnd-timedwait tst-thrd-detach tst-mtx-basic tst-thrd-sleep \
++	tst-mtx-recursive tst-call-once tst-mtx-timedlock \
+ 	tst-rwlock-pwn \
+ 	tst-unwind-thread
+ 
+@@ -384,7 +387,7 @@ CFLAGS-tst-cleanup2.c += -fno-builtin
+ CFLAGS-tst-cleanupx2.c += -fno-builtin
+ 
+ tests += tst-cancelx2 tst-cancelx3 tst-cancelx4 tst-cancelx5 \
+-	 tst-cancelx6 tst-cancelx7 tst-cancelx8 tst-cancelx9 tst-cancelx10 \
++	 tst-cancelx6 tst-cancelx8 tst-cancelx9 tst-cancelx10 \
+ 	 tst-cancelx11 tst-cancelx12 tst-cancelx13 tst-cancelx14 tst-cancelx15 \
+ 	 tst-cancelx16 tst-cancelx17 tst-cancelx18 tst-cancelx20 tst-cancelx21 \
+ 	 tst-cleanupx0 tst-cleanupx1 tst-cleanupx2 tst-cleanupx3 tst-cleanupx4
+diff --git a/posix/Makefile b/posix/Makefile
+index 4507d84bf1..28075ed5bf 100644
+--- a/posix/Makefile
++++ b/posix/Makefile
+@@ -68,7 +68,7 @@ routines :=								      \
+ 	streams-compat
+ 
+ aux		:= init-posix environ
+-tests		:= test-errno tstgetopt testfnm runtests runptests \
++tests		:= tstgetopt testfnm runtests runptests \
+ 		   tst-preadwrite tst-preadwrite64 test-vfork regexbug1 \
+ 		   tst-mmap tst-mmap-offset tst-getaddrinfo tst-truncate \
+ 		   tst-truncate64 tst-fork tst-fnmatch tst-regexloc tst-dir \
+@@ -89,7 +89,7 @@ tests		:= test-errno tstgetopt testfnm runtests runptests \
+ 		   tst-execve1 tst-execve2 tst-execle1 tst-execle2 \
+ 		   tst-execvp3 tst-execvp4 \
+ 		   tst-execvpe1 tst-execvpe2 tst-execvpe3 tst-execvpe4 \
+-		   tst-execvpe5 tst-execvpe6 \
++		   tst-execvpe6 \
+ 		   tst-getaddrinfo3 tst-fnmatch2 tst-cpucount tst-cpuset \
+ 		   bug-getopt1 bug-getopt2 bug-getopt3 bug-getopt4 \
+ 		   bug-getopt5 tst-getopt_long1 bug-regex34 bug-regex35 \
+diff --git a/resolv/Makefile b/resolv/Makefile
+index f131e4b014..6ee6570345 100644
+--- a/resolv/Makefile
++++ b/resolv/Makefile
+@@ -72,8 +72,6 @@ tests += \
+ 
+ # Needs resolv_context.
+ tests-internal += \
+-  tst-resolv-res_init \
+-  tst-resolv-res_init-thread \
+   tst-resolv-res_ninit \
+   tst-resolv-threads \
+ 
+diff --git a/sysdeps/unix/sysv/linux/Makefile b/sysdeps/unix/sysv/linux/Makefile
+index 60dc5cf9e5..158b2be0d2 100644
+--- a/sysdeps/unix/sysv/linux/Makefile
++++ b/sysdeps/unix/sysv/linux/Makefile
+@@ -95,7 +95,7 @@ sysdep_headers += sys/mount.h sys/acct.h sys/sysctl.h \
+ 		  bits/ipc-perm.h
+ 
+ tests += tst-clone tst-clone2 tst-clone3 tst-fanotify tst-personality \
+-	 tst-quota tst-sync_file_range tst-sysconf-iov_max tst-ttyname \
++	 tst-quota tst-sync_file_range tst-sysconf-iov_max \
+ 	 test-errno-linux tst-memfd_create tst-mlock2 tst-pkey \
+ 	 tst-rlimit-infinity tst-ofdlocks tst-gettid tst-gettid-kill \
+ 	 tst-tgkill
+-- 
+2.26.2
+

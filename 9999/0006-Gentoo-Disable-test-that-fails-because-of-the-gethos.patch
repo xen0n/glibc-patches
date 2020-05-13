@@ -1,0 +1,25 @@
+From 3b6603fa966a37830261f1452d83f0aa80a1ec7d Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Andreas=20K=2E=20H=C3=BCttel?= <dilfridge@gentoo.org>
+Date: Wed, 17 Jan 2018 01:02:19 +0100
+Subject: [PATCH 06/12] Gentoo: Disable test that fails because of the
+ gethostbyname4_r revert
+
+---
+ nss/Makefile | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/nss/Makefile b/nss/Makefile
+index 97bab5bb75..7a6ddebde2 100644
+--- a/nss/Makefile
++++ b/nss/Makefile
+@@ -68,7 +68,6 @@ tests-container = \
+ # Tests which need libdl
+ ifeq (yes,$(build-shared))
+ tests += tst-nss-files-hosts-erange
+-tests += tst-nss-files-hosts-multi
+ tests += tst-nss-files-hosts-getent
+ tests += tst-nss-files-alias-leak
+ tests += tst-nss-files-alias-truncated
+-- 
+2.26.2
+

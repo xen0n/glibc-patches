@@ -1,0 +1,66 @@
+From 1c39b1dd8ad727a48cb3c9fbcd9d005f690752eb Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Andreas=20K=2E=20H=C3=BCttel?= <dilfridge@gentoo.org>
+Date: Fri, 14 Dec 2018 20:43:04 +0100
+Subject: [PATCH 09/12] Gentoo: force -O0 in conform tests to survive $CC
+ changes
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+In bug #659030 Gentoo started passing user's CFLAGS via $CC variable.
+conform tests should but are not ready to handle -O1/-O2 yet.
+Tests fail to validate headers due to inlining of weak symbol aliases
+and other problems. Let's force it back to -O0 until it's fixed upstream.
+
+Original patch by Sergei, ported to the new python test framework by Andreas
+
+Bug: https://bugs.gentoo.org/659030
+Signed-off-by: Sergei Trofimovich <slyfox@gentoo.org>
+Signed-off-by: Andreas K. Hüttel <dilfridge@gentoo.org>
+---
+ conform/conformtest.py   | 6 ++++--
+ conform/linknamespace.py | 4 +++-
+ 2 files changed, 7 insertions(+), 3 deletions(-)
+
+diff --git a/conform/conformtest.py b/conform/conformtest.py
+index cb2bd97eca..6076b615df 100644
+--- a/conform/conformtest.py
++++ b/conform/conformtest.py
+@@ -562,7 +562,7 @@ class HeaderTests(object):
+         o_file = os.path.join(self.temp_dir, 'test.o')
+         with open(c_file, 'w') as c_file_out:
+             c_file_out.write('#include <%s>\n%s' % (self.header, text))
+-        cmd = ('%s %s -c %s -o %s' % (self.cc, self.cflags, c_file, o_file))
++        cmd = ('%s %s -O0 -c %s -o %s' % (self.cc, self.cflags, c_file, o_file))
+         try:
+             subprocess.check_call(cmd, shell=True)
+         except subprocess.CalledProcessError:
+@@ -613,7 +613,9 @@ class HeaderTests(object):
+         out_file = os.path.join(self.temp_dir, 'namespace-out')
+         with open(c_file, 'w') as c_file_out:
+             c_file_out.write('#include <%s>\n' % self.header)
+-        cmd = ('%s %s -E %s -P -Wp,-dN > %s'
++        # -O0 to negate effect of possible -O<N> passed to $CC
++        # See https://bugs.gentoo.org/659030#c6
++        cmd = ('%s -O0 %s -E %s -P -Wp,-dN > %s'
+                % (self.cc, self.cflags_namespace, c_file, out_file))
+         subprocess.check_call(cmd, shell=True)
+         bad_tokens = set()
+diff --git a/conform/linknamespace.py b/conform/linknamespace.py
+index 1d27e4cfba..b0d2b9bbc2 100644
+--- a/conform/linknamespace.py
++++ b/conform/linknamespace.py
+@@ -157,7 +157,9 @@ def main():
+     files_seen = set()
+     all_undef = {}
+     current_undef = {}
+-    compiler = '%s %s' % (args.cc, args.flags)
++    # -O0 avoid failures like
++    # '[initial] ptsname_r -> [libc.a(ptsname.o)] ptsname'
++    compiler = '%s %s -O0' % (args.cc, args.flags)
+     c_syms = glibcconform.list_exported_functions(compiler, args.standard,
+                                                   args.header)
+     with tempfile.TemporaryDirectory() as temp_dir:
+-- 
+2.26.2
+
