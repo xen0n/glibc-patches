@@ -44,6 +44,8 @@ if [[ ! -z "${mystatusinfo}" ]] ; then
 	exit 1
 fi
 
+mydescpatches=$(git describe)
+
 # go into the gentoo glibc repo
 
 cd "${mypathglibc}"
@@ -64,6 +66,8 @@ if [[ ! -z "${mystatusinfo}" ]] ; then
 	echo "Error: Your glibc working directory is not clean"
 	exit 1
 fi
+
+mydescglibc=$(git describe)
 
 # check if the tag already exists
 
@@ -95,6 +99,9 @@ mkdir -p tmp/patches
 # copy README.Gentoo.patches
 
 cp "${mypathpatches}/README.Gentoo.patches" tmp/ || exit 1
+
+echo >> "tmp/README.Gentoo.patches"
+echo "Generated with make-tarball.sh ${mydescpatches}" >> "tmp/README.Gentoo.patches"
 
 # create and rename patches
 
