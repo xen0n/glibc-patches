@@ -1,7 +1,7 @@
 From dbe134e9eed77bfbbbbf80fa97f2b02b869bcf9c Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Andreas=20K=2E=20H=C3=BCttel?= <dilfridge@gentoo.org>
 Date: Mon, 22 Oct 2018 22:34:13 +0200
-Subject: [PATCH 3/5] Adapt to Gentoo-specific /etc/mail/aliases
+Subject: Adapt to Gentoo-specific /etc/mail/aliases
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -17,15 +17,15 @@ Signed-off-by: Andreas K. Hüttel <dilfridge@gentoo.org>
  3 files changed, 17 insertions(+), 11 deletions(-)
 
 diff --git a/nss/nss_files/files-alias.c b/nss/nss_files/files-alias.c
-index 6aff7b4c10..bb6d9b5765 100644
+index 43fb2c49a5..26b2cc86ad 100644
 --- a/nss/nss_files/files-alias.c
 +++ b/nss/nss_files/files-alias.c
-@@ -49,7 +49,7 @@ internal_setent (FILE **stream)
+@@ -50,7 +50,7 @@ internal_setent (FILE **stream)
  
    if (*stream == NULL)
      {
--      *stream = fopen ("/etc/aliases", "rce");
-+      *stream = fopen ("/etc/mail/aliases", "rce");
+-      *stream = __nss_files_fopen ("/etc/aliases");
++      *stream = __nss_files_fopen ("/etc/mail/aliases");
  
        if (*stream == NULL)
  	status = errno == EAGAIN ? NSS_STATUS_TRYAGAIN : NSS_STATUS_UNAVAIL;
@@ -103,6 +103,3 @@ index 4f435c1ac1..e7ca2c714b 100644
  
    /* valgrind needs a temporary directory in the chroot.  */
    {
--- 
-2.26.2
-
