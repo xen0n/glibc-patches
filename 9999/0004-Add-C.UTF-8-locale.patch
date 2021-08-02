@@ -1,7 +1,7 @@
-From 776636b6940ed6f3e08b0a67c290f241885384cb Mon Sep 17 00:00:00 2001
+From 5d65bb98c9ec8d3657b5566e9fb50d46319f65a3 Mon Sep 17 00:00:00 2001
 From: Mike FABIAN <mfabian@redhat.com>
 Date: Mon, 10 Aug 2015 15:58:12 +0200
-Subject: [PATCH 4/5] Add C.UTF-8 locale
+Subject: [PATCH 4/6] Add C.UTF-8 locale
 
 Source:
 https://src.fedoraproject.org/rpms/glibc/raw/master/f/glibc-c-utf8-locale.patch
@@ -283,5 +283,5 @@ index 0000000000..b2c2d1dc41
 +END LC_MEASUREMENT
 +
 -- 
-2.26.2
+2.31.1
 
