@@ -1,0 +1,181 @@
+From 1524804c8133564c204340a0d618f04c585d7706 Mon Sep 17 00:00:00 2001
+From: Adhemerval Zanella <adhemerval.zanella@linaro.org>
+Date: Mon, 13 Apr 2020 08:35:40 -0300
+Subject: [PATCH 4/7] linux: Add __readdir64_unlocked
+
+And use it on readdir_r implementation.
+
+Checked on i686-linux-gnu.
+---
+ include/dirent.h                      |  1 +
+ sysdeps/unix/sysv/linux/readdir64.c   | 20 +++++--
+ sysdeps/unix/sysv/linux/readdir64_r.c | 80 ++++++---------------------
+ 3 files changed, 33 insertions(+), 68 deletions(-)
+
+diff --git a/include/dirent.h b/include/dirent.h
+index d7567f5e86..0c6715d0e4 100644
+--- a/include/dirent.h
++++ b/include/dirent.h
+@@ -21,6 +21,7 @@ extern DIR *__fdopendir (int __fd) attribute_hidden;
+ extern int __closedir (DIR *__dirp) attribute_hidden;
+ extern struct dirent *__readdir (DIR *__dirp) attribute_hidden;
+ extern struct dirent *__readdir_unlocked (DIR *__dirp) attribute_hidden;
++extern struct dirent64 *__readdir64_unlocked (DIR *__dirp) attribute_hidden;
+ extern struct dirent64 *__readdir64 (DIR *__dirp);
+ libc_hidden_proto (__readdir64)
+ extern int __readdir_r (DIR *__dirp, struct dirent *__entry,
+diff --git a/sysdeps/unix/sysv/linux/readdir64.c b/sysdeps/unix/sysv/linux/readdir64.c
+index 3aea0b1df1..5519487ede 100644
+--- a/sysdeps/unix/sysv/linux/readdir64.c
++++ b/sysdeps/unix/sysv/linux/readdir64.c
+@@ -28,14 +28,10 @@
+ 
+ /* Read a directory entry from DIRP.  */
+ struct dirent64 *
+-__readdir64 (DIR *dirp)
++__readdir64_unlocked (DIR *dirp)
+ {
+   const int saved_errno = errno;
+ 
+-#if IS_IN (libc)
+-  __libc_lock_lock (dirp->lock);
+-#endif
+-
+   if (dirp->offset >= dirp->size)
+     {
+       /* We've emptied out our buffer.  Refill it.  */
+@@ -65,6 +61,20 @@ __readdir64 (DIR *dirp)
+ 
+   dirp->filepos = dp->d_off;
+ 
++  return dp;
++}
++
++struct dirent64 *
++__readdir64 (DIR *dirp)
++{
++  struct dirent64 *dp;
++
++#if IS_IN (libc)
++  __libc_lock_lock (dirp->lock);
++#endif
++
++  dp = __readdir64_unlocked (dirp);
++
+ #if IS_IN (libc)
+   __libc_lock_unlock (dirp->lock);
+ #endif
+diff --git a/sysdeps/unix/sysv/linux/readdir64_r.c b/sysdeps/unix/sysv/linux/readdir64_r.c
+index 073a6453d1..058d401279 100644
+--- a/sysdeps/unix/sysv/linux/readdir64_r.c
++++ b/sysdeps/unix/sysv/linux/readdir64_r.c
+@@ -32,89 +32,43 @@ __readdir64_r (DIR *dirp, struct dirent64 *entry, struct dirent64 **result)
+ {
+   struct dirent64 *dp;
+   size_t reclen;
+-  const int saved_errno = errno;
+-  int ret;
+ 
+   __libc_lock_lock (dirp->lock);
+-
+-  do
++  while (1)
+     {
+-      if (dirp->offset >= dirp->size)
+-	{
+-	  /* We've emptied out our buffer.  Refill it.  */
+-
+-	  size_t maxread = dirp->allocation;
+-	  ssize_t bytes;
+-
+-	  maxread = dirp->allocation;
+-
+-	  bytes = __getdents64 (dirp->fd, dirp->data, maxread);
+-	  if (bytes <= 0)
+-	    {
+-	      /* On some systems getdents fails with ENOENT when the
+-		 open directory has been rmdir'd already.  POSIX.1
+-		 requires that we treat this condition like normal EOF.  */
+-	      if (bytes < 0 && errno == ENOENT)
+-		{
+-		  bytes = 0;
+-		  __set_errno (saved_errno);
+-		}
+-	      if (bytes < 0)
+-		dirp->errcode = errno;
+-
+-	      dp = NULL;
+-	      break;
+-	    }
+-	  dirp->size = (size_t) bytes;
+-
+-	  /* Reset the offset into the buffer.  */
+-	  dirp->offset = 0;
+-	}
+-
+-      dp = (struct dirent64 *) &dirp->data[dirp->offset];
++      dp = __readdir64_unlocked (dirp);
++      if (dp == NULL)
++	break;
+ 
+       reclen = dp->d_reclen;
++      if (reclen <= offsetof (struct dirent64, d_name) + NAME_MAX + 1)
++	break;
+ 
+-      dirp->offset += reclen;
+-
+-      dirp->filepos = dp->d_off;
+-
+-      if (reclen > offsetof (struct dirent64, d_name) + NAME_MAX + 1)
++      /* The record is very long.  It could still fit into the caller-supplied
++	 buffer if we can skip padding at the end.  */
++      size_t namelen = _D_EXACT_NAMLEN (dp);
++      if (namelen <= NAME_MAX)
+ 	{
+-	  /* The record is very long.  It could still fit into the
+-	     caller-supplied buffer if we can skip padding at the
+-	     end.  */
+-	  size_t namelen = _D_EXACT_NAMLEN (dp);
+-	  if (namelen <= NAME_MAX)
+-	    reclen = offsetof (struct dirent64, d_name) + namelen + 1;
+-	  else
+-	    {
+-	      /* The name is too long.  Ignore this file.  */
+-	      dirp->errcode = ENAMETOOLONG;
+-	      dp->d_ino = 0;
+-	      continue;
+-	    }
++	  reclen = offsetof (struct dirent64, d_name) + namelen + 1;
++	  break;
+ 	}
+ 
+-      /* Skip deleted and ignored files.  */
++      /* The name is too long.  Ignore this file.  */
++      dirp->errcode = ENAMETOOLONG;
++      dp->d_ino = 0;
+     }
+-  while (dp->d_ino == 0);
+ 
+   if (dp != NULL)
+     {
+       *result = memcpy (entry, dp, reclen);
+       entry->d_reclen = reclen;
+-      ret = 0;
+     }
+   else
+-    {
+-      *result = NULL;
+-      ret = dirp->errcode;
+-    }
++    *result = NULL;
+ 
+   __libc_lock_unlock (dirp->lock);
+ 
+-  return ret;
++  return dp != NULL ? 0 : dirp->errcode;
+ }
+ 
+ 
+-- 
+2.32.0
+

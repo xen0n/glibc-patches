@@ -1,0 +1,182 @@
+From 7856a2b7ae88602bc9ee65e08fe652b6a6ad5f7e Mon Sep 17 00:00:00 2001
+From: Adhemerval Zanella <adhemerval.zanella@linaro.org>
+Date: Tue, 20 Oct 2020 12:18:56 -0300
+Subject: [PATCH 1/7] linux: Do not skip entries with zero d_ino values [BZ
+ #12165]
+
+According to Linux commit 2adc376c55194 (vfs: avoid creation of inode
+number 0 in get_next_ino) Linux did not treat d_ino == 0 as a special
+case (it is a valid inode number).
+
+This patch fixes readdir{64} by not ignoring entried with d_ino being
+0.
+
+Checked on x86_64-linux-gnu and i686-linux-gnu.
+---
+ sysdeps/unix/sysv/linux/readdir.c   | 59 +++++++++++------------------
+ sysdeps/unix/sysv/linux/readdir64.c | 59 +++++++++++------------------
+ 2 files changed, 44 insertions(+), 74 deletions(-)
+
+diff --git a/sysdeps/unix/sysv/linux/readdir.c b/sysdeps/unix/sysv/linux/readdir.c
+index b480135164..c0619ce06f 100644
+--- a/sysdeps/unix/sysv/linux/readdir.c
++++ b/sysdeps/unix/sysv/linux/readdir.c
+@@ -25,51 +25,36 @@
+ struct dirent *
+ __readdir_unlocked (DIR *dirp)
+ {
+-  struct dirent *dp;
+-  int saved_errno = errno;
++  const int saved_errno = errno;
+ 
+-  do
++  if (dirp->offset >= dirp->size)
+     {
+-      size_t reclen;
+-
+-      if (dirp->offset >= dirp->size)
++      /* We've emptied out our buffer.  Refill it.  */
++      ssize_t bytes = __getdents (dirp->fd, dirp->data, dirp->allocation);
++      if (bytes <= 0)
+ 	{
+-	  /* We've emptied out our buffer.  Refill it.  */
+-
+-	  size_t maxread = dirp->allocation;
+-	  ssize_t bytes;
+-
+-	  bytes = __getdents (dirp->fd, dirp->data, maxread);
+-	  if (bytes <= 0)
+-	    {
+-	      /* On some systems getdents fails with ENOENT when the
+-		 open directory has been rmdir'd already.  POSIX.1
+-		 requires that we treat this condition like normal EOF.  */
+-	      if (bytes < 0 && errno == ENOENT)
+-		bytes = 0;
+-
+-	      /* Don't modifiy errno when reaching EOF.  */
+-	      if (bytes == 0)
+-		__set_errno (saved_errno);
+-	      dp = NULL;
+-	      break;
+-	    }
+-	  dirp->size = (size_t) bytes;
+-
+-	  /* Reset the offset into the buffer.  */
+-	  dirp->offset = 0;
++	  /* On some systems getdents fails with ENOENT when the
++	     open directory has been rmdir'd already.  POSIX.1
++	     requires that we treat this condition like normal EOF.  */
++	  if (bytes < 0 && errno == ENOENT)
++	    bytes = 0;
++
++	  /* Don't modifiy errno when reaching EOF.  */
++	  if (bytes == 0)
++	    __set_errno (saved_errno);
++	  return NULL;
+ 	}
++      dirp->size = bytes;
+ 
+-      dp = (struct dirent *) &dirp->data[dirp->offset];
+-
+-      reclen = dp->d_reclen;
++      /* Reset the offset into the buffer.  */
++      dirp->offset = 0;
++    }
+ 
+-      dirp->offset += reclen;
++  struct dirent *dp = (struct dirent *) &dirp->data[dirp->offset];
+ 
+-      dirp->filepos = dp->d_off;
++  dirp->offset += dp->d_reclen;
+ 
+-      /* Skip deleted files.  */
+-    } while (dp->d_ino == 0);
++  dirp->filepos = dp->d_off;
+ 
+   return dp;
+ }
+diff --git a/sysdeps/unix/sysv/linux/readdir64.c b/sysdeps/unix/sysv/linux/readdir64.c
+index 52b11eb9d9..3aea0b1df1 100644
+--- a/sysdeps/unix/sysv/linux/readdir64.c
++++ b/sysdeps/unix/sysv/linux/readdir64.c
+@@ -30,55 +30,40 @@
+ struct dirent64 *
+ __readdir64 (DIR *dirp)
+ {
+-  struct dirent64 *dp;
+-  int saved_errno = errno;
++  const int saved_errno = errno;
+ 
+ #if IS_IN (libc)
+   __libc_lock_lock (dirp->lock);
+ #endif
+ 
+-  do
++  if (dirp->offset >= dirp->size)
+     {
+-      size_t reclen;
+-
+-      if (dirp->offset >= dirp->size)
++      /* We've emptied out our buffer.  Refill it.  */
++      ssize_t bytes = __getdents64 (dirp->fd, dirp->data, dirp->allocation);
++      if (bytes <= 0)
+ 	{
+-	  /* We've emptied out our buffer.  Refill it.  */
+-
+-	  size_t maxread = dirp->allocation;
+-	  ssize_t bytes;
+-
+-	  bytes = __getdents64 (dirp->fd, dirp->data, maxread);
+-	  if (bytes <= 0)
+-	    {
+-	      /* On some systems getdents fails with ENOENT when the
+-		 open directory has been rmdir'd already.  POSIX.1
+-		 requires that we treat this condition like normal EOF.  */
+-	      if (bytes < 0 && errno == ENOENT)
+-		bytes = 0;
+-
+-	      /* Don't modifiy errno when reaching EOF.  */
+-	      if (bytes == 0)
+-		__set_errno (saved_errno);
+-	      dp = NULL;
+-	      break;
+-	    }
+-	  dirp->size = (size_t) bytes;
+-
+-	  /* Reset the offset into the buffer.  */
+-	  dirp->offset = 0;
++	  /* On some systems getdents fails with ENOENT when the
++	     open directory has been rmdir'd already.  POSIX.1
++	     requires that we treat this condition like normal EOF.  */
++	  if (bytes < 0 && errno == ENOENT)
++	    bytes = 0;
++
++	  /* Don't modifiy errno when reaching EOF.  */
++	  if (bytes == 0)
++	    __set_errno (saved_errno);
++	  return NULL;
+ 	}
++      dirp->size = bytes;
+ 
+-      dp = (struct dirent64 *) &dirp->data[dirp->offset];
+-
+-      reclen = dp->d_reclen;
++      /* Reset the offset into the buffer.  */
++      dirp->offset = 0;
++   }
+ 
+-      dirp->offset += reclen;
++  struct dirent64 *dp = (struct dirent64 *) &dirp->data[dirp->offset];
+ 
+-      dirp->filepos = dp->d_off;
++  dirp->offset += dp->d_reclen;
+ 
+-      /* Skip deleted files.  */
+-    } while (dp->d_ino == 0);
++  dirp->filepos = dp->d_off;
+ 
+ #if IS_IN (libc)
+   __libc_lock_unlock (dirp->lock);
+-- 
+2.32.0
+

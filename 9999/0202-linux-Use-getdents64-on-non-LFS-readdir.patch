@@ -1,0 +1,204 @@
+From 5180512e6c81b1b0423572594983c74c499b7e1e Mon Sep 17 00:00:00 2001
+From: Adhemerval Zanella <adhemerval.zanella@linaro.org>
+Date: Tue, 20 Oct 2020 13:37:15 -0300
+Subject: [PATCH 2/7] linux: Use getdents64 on non-LFS readdir
+
+The opendir allocates a translation buffer to be used to return the
+non-LFS readdir entry.  The obtained dirent64 struct is translated
+to the temporary buffer on each readdir call.
+
+Entries that overflow d_off/d_ino and the buffer reallocation failure
+(in case of large d_name) are ignored.
+
+Checked on x86_64-linux-gnu and i686-linux-gnu.
+---
+ sysdeps/unix/sysv/linux/closedir.c  |  4 ++
+ sysdeps/unix/sysv/linux/dirstream.h |  5 ++
+ sysdeps/unix/sysv/linux/opendir.c   | 21 +++++++
+ sysdeps/unix/sysv/linux/readdir.c   | 97 +++++++++++++++++++++--------
+ 4 files changed, 101 insertions(+), 26 deletions(-)
+
+diff --git a/sysdeps/unix/sysv/linux/closedir.c b/sysdeps/unix/sysv/linux/closedir.c
+index 4bb5274b00..1f71445ad9 100644
+--- a/sysdeps/unix/sysv/linux/closedir.c
++++ b/sysdeps/unix/sysv/linux/closedir.c
+@@ -47,6 +47,10 @@ __closedir (DIR *dirp)
+   __libc_lock_fini (dirp->lock);
+ #endif
+ 
++#if !_DIRENT_MATCHES_DIRENT64
++  free (dirp->tbuffer);
++#endif
++
+   free ((void *) dirp);
+ 
+   return __close_nocancel (fd);
+diff --git a/sysdeps/unix/sysv/linux/dirstream.h b/sysdeps/unix/sysv/linux/dirstream.h
+index b5e1db8db0..64b1495ba0 100644
+--- a/sysdeps/unix/sysv/linux/dirstream.h
++++ b/sysdeps/unix/sysv/linux/dirstream.h
+@@ -41,6 +41,11 @@ struct __dirstream
+ 
+     int errcode;		/* Delayed error code.  */
+ 
++#if !defined __OFF_T_MATCHES_OFF64_T || !defined __INO_T_MATCHES_INO64_T
++    char *tbuffer;		/* Translation buffer for non-LFS calls.  */
++    size_t tbuffer_size;	/* Size of translation buffer.  */
++#endif
++
+     /* Directory block.  We must make sure that this block starts
+        at an address that is aligned adequately enough to store
+        dirent entries.  Using the alignment of "void *" is not
+diff --git a/sysdeps/unix/sysv/linux/opendir.c b/sysdeps/unix/sysv/linux/opendir.c
+index 48f254d169..d7df13575e 100644
+--- a/sysdeps/unix/sysv/linux/opendir.c
++++ b/sysdeps/unix/sysv/linux/opendir.c
+@@ -120,6 +120,27 @@ __alloc_dir (int fd, bool close_fd, int flags,
+       return NULL;
+     }
+ 
++#if !_DIRENT_MATCHES_DIRENT64
++  /* Allocates a translation buffer to use as the returned 'struct direct'
++     for non-LFS 'readdir' calls.
++
++     The initial NAME_MAX size should handle most cases, while readdir might
++     expand the buffer if required.  */
++  enum
++    {
++      tbuffer_size = sizeof (struct dirent) + NAME_MAX + 1
++    };
++  dirp->tbuffer = malloc (tbuffer_size);
++  if (dirp->tbuffer == NULL)
++    {
++      free (dirp);
++      if (close_fd)
++	__close_nocancel_nostatus (fd);
++      return NULL;
++    }
++  dirp->tbuffer_size = tbuffer_size;
++#endif
++
+   dirp->fd = fd;
+ #if IS_IN (libc)
+   __libc_lock_init (dirp->lock);
+diff --git a/sysdeps/unix/sysv/linux/readdir.c b/sysdeps/unix/sysv/linux/readdir.c
+index c0619ce06f..8647bb0aef 100644
+--- a/sysdeps/unix/sysv/linux/readdir.c
++++ b/sysdeps/unix/sysv/linux/readdir.c
+@@ -21,42 +21,87 @@
+ #if !_DIRENT_MATCHES_DIRENT64
+ #include <dirstream.h>
+ 
++/* Translate the DP64 entry to the non-LFS one in the translation buffer
++   at dirstream DS.  Return true is the translation was possible or
++   false if either an internal fields can be represented in the non-LFS
++   entry or if the translation can not be resized.  */
++static bool
++dirstream_entry (struct __dirstream *ds, const struct dirent64 *dp64)
++{
++  off_t d_off = dp64->d_off;
++  if (d_off != dp64->d_off)
++    return false;
++  ino_t d_ino = dp64->d_ino;
++  if (d_ino != dp64->d_ino)
++    return false;
++
++  /* Expand the translation buffer to hold the new name size.  */
++  size_t new_reclen = sizeof (struct dirent)
++		    + dp64->d_reclen - offsetof (struct dirent64, d_name);
++  if (new_reclen > ds->tbuffer_size)
++    {
++      char *newbuffer = realloc (ds->tbuffer, new_reclen);
++      if (newbuffer == NULL)
++	return false;
++      ds->tbuffer = newbuffer;
++      ds->tbuffer_size = new_reclen;
++    }
++
++  struct dirent *dp = (struct dirent *) ds->tbuffer;
++
++  dp->d_off = d_off;
++  dp->d_ino = d_ino;
++  dp->d_reclen = new_reclen;
++  dp->d_type = dp64->d_type;
++  memcpy (dp->d_name, dp64->d_name,
++	  dp64->d_reclen - offsetof (struct dirent64, d_name));
++
++  return true;
++}
++
+ /* Read a directory entry from DIRP.  */
+ struct dirent *
+ __readdir_unlocked (DIR *dirp)
+ {
+   const int saved_errno = errno;
+ 
+-  if (dirp->offset >= dirp->size)
++  while (1)
+     {
+-      /* We've emptied out our buffer.  Refill it.  */
+-      ssize_t bytes = __getdents (dirp->fd, dirp->data, dirp->allocation);
+-      if (bytes <= 0)
++      if (dirp->offset >= dirp->size)
+ 	{
+-	  /* On some systems getdents fails with ENOENT when the
+-	     open directory has been rmdir'd already.  POSIX.1
+-	     requires that we treat this condition like normal EOF.  */
+-	  if (bytes < 0 && errno == ENOENT)
+-	    bytes = 0;
+-
+-	  /* Don't modifiy errno when reaching EOF.  */
+-	  if (bytes == 0)
+-	    __set_errno (saved_errno);
+-	  return NULL;
++	  /* We've emptied out our buffer.  Refill it.  */
++	  ssize_t bytes = __getdents64 (dirp->fd, dirp->data,
++					dirp->allocation);
++	  if (bytes <= 0)
++	    {
++	      /* On some systems getdents fails with ENOENT when the
++		 open directory has been rmdir'd already.  POSIX.1
++		 requires that we treat this condition like normal EOF.  */
++	      if (bytes < 0 && errno == ENOENT)
++		bytes = 0;
++
++	      /* Don't modifiy errno when reaching EOF.  */
++	      if (bytes == 0)
++		__set_errno (saved_errno);
++	      return NULL;
++	    }
++	  dirp->size = bytes;
++
++ 	  /* Reset the offset into the buffer.  */
++	  dirp->offset = 0;
++ 	}
++
++      struct dirent64 *dp64 = (struct dirent64 *) &dirp->data[dirp->offset];
++      dirp->offset += dp64->d_reclen;
++
++      /* Skip entries which might overflow d_off/d_ino or if the translation
++	 buffer can't be resized.  */
++      if (dirstream_entry (dirp, dp64))
++	{
++          dirp->filepos = dp64->d_off;
++	  return (struct dirent *) dirp->tbuffer;
+ 	}
+-      dirp->size = bytes;
+-
+-      /* Reset the offset into the buffer.  */
+-      dirp->offset = 0;
+     }
+-
+-  struct dirent *dp = (struct dirent *) &dirp->data[dirp->offset];
+-
+-  dirp->offset += dp->d_reclen;
+-
+-  dirp->filepos = dp->d_off;
+-
+-  return dp;
+ }
+ 
+ struct dirent *
+-- 
+2.32.0
+

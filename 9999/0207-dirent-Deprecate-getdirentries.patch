@@ -1,0 +1,101 @@
+From 8180167096d51c9767888a695e60a542b64813f0 Mon Sep 17 00:00:00 2001
+From: Adhemerval Zanella <adhemerval.zanella@linaro.org>
+Date: Fri, 17 Apr 2020 09:59:51 -0300
+Subject: [PATCH 7/7] dirent: Deprecate getdirentries
+
+The interface has some issues:
+
+  1. It is build on top getdents on Linux and requires handling
+     non-LFS call using LFS getdents.
+
+  2. It is not wildly used and the non-LFS support is as problematic
+     as non-LFS readdir.  glibc only exports the LFS getdents.
+
+  3. It is not a direct replacement over BSD since on some plataform
+     its signature has changed (FreeBSD 11, for instance, used to
+     set the offset as a 'long' and changed to 'off_t' on version 12).
+
+The idea is to eventually move the symbols to compat ones.
+---
+ NEWS                             |  5 +++++
+ dirent/dirent.h                  | 14 ++++++++++----
+ sysdeps/unix/sysv/linux/Makefile |  3 +++
+ 3 files changed, 18 insertions(+), 4 deletions(-)
+
+diff --git a/NEWS b/NEWS
+index d9b344027b..a18a1d7a8c 100644
+--- a/NEWS
++++ b/NEWS
+@@ -7,6 +7,11 @@ using `glibc' in the "product" field.
+ 
+ Version 2.34.1
+ 
++Deprecated and removed features, and other changes affecting compatibility:
++
++* The function getdirentries is now deprecated, applications should use
++  either getdents64, readdir64 or readdir.
++
+ The following bugs are resolved with this release:
+ 
+   [12889] nptl: Fix race between pthread_kill and thread exit
+diff --git a/dirent/dirent.h b/dirent/dirent.h
+index 1d1fab7e55..8ad5fbf430 100644
+--- a/dirent/dirent.h
++++ b/dirent/dirent.h
+@@ -348,29 +348,35 @@ extern int alphasort64 (const struct dirent64 **__e1,
+ /* Read directory entries from FD into BUF, reading at most NBYTES.
+    Reading starts at offset *BASEP, and *BASEP is updated with the new
+    position after reading.  Returns the number of bytes read; zero when at
+-   end of directory; or -1 for errors.  */
++   end of directory; or -1 for errors.
++   This is deprecated and getdents64 or readdir should be used instead.  */
+ # ifndef __USE_FILE_OFFSET64
+ extern __ssize_t getdirentries (int __fd, char *__restrict __buf,
+ 				size_t __nbytes,
+ 				__off_t *__restrict __basep)
+-     __THROW __nonnull ((2, 4));
++     __THROW __nonnull ((2, 4))
++     __attribute_deprecated_msg__ ("Use getdents64 instead");
+ # else
+ #  ifdef __REDIRECT
+ extern __ssize_t __REDIRECT_NTH (getdirentries,
+ 				 (int __fd, char *__restrict __buf,
+ 				  size_t __nbytes,
+ 				  __off64_t *__restrict __basep),
+-				 getdirentries64) __nonnull ((2, 4));
++				 getdirentries64)
++     __THROW __nonnull ((2, 4))
++     __attribute_deprecated_msg__ ("Use getdents64 instead");
+ #  else
+ #   define getdirentries getdirentries64
+ #  endif
+ # endif
+ 
+ # ifdef __USE_LARGEFILE64
++/* This is deprecated and getdents64 or readdir64 should be used instead.  */
+ extern __ssize_t getdirentries64 (int __fd, char *__restrict __buf,
+ 				  size_t __nbytes,
+ 				  __off64_t *__restrict __basep)
+-     __THROW __nonnull ((2, 4));
++     __THROW __nonnull ((2, 4))
++     __attribute_deprecated_msg__ ("Use getdents64 instead");
+ # endif
+ #endif /* Use misc.  */
+ 
+diff --git a/sysdeps/unix/sysv/linux/Makefile b/sysdeps/unix/sysv/linux/Makefile
+index 76ad06361c..65ec7529f6 100644
+--- a/sysdeps/unix/sysv/linux/Makefile
++++ b/sysdeps/unix/sysv/linux/Makefile
+@@ -313,6 +313,9 @@ tests += tst-getdents64
+ # The tested readdir64 symbol was replaced in glibc 2.2.
+ ifeq ($(have-GLIBC_2.1.3)$(build-shared),yesyes)
+ tests += tst-readdir64-compat
++
++# Avoid the warning for the weak_alias for _DIRENT_MATCHES_DIRENT64
++CFLAGS-getdirentries64.c = -Wno-deprecated-declarations
+ endif
+ endif # $(subdir) == dirent
+ 
+-- 
+2.32.0
+

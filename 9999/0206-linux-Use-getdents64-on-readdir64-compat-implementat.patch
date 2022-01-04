@@ -1,0 +1,297 @@
+From 46b9383118182cb2ac2e81637e00fde6c21097bb Mon Sep 17 00:00:00 2001
+From: Adhemerval Zanella <adhemerval.zanella@linaro.org>
+Date: Tue, 20 Oct 2020 16:00:43 -0300
+Subject: [PATCH 6/7] linux: Use getdents64 on readdir64 compat implementation
+
+It uses a similar strategy from the non-LFS readdir that also
+uses getdents64 internally and uses a translation buffer to return
+the compat readdir64 entry.
+
+It allows to remove __old_getdents64.
+
+Checked on i686-linux-gnu.
+---
+ sysdeps/unix/sysv/linux/getdents64.c |  93 ------------------------
+ sysdeps/unix/sysv/linux/olddirent.h  |   2 -
+ sysdeps/unix/sysv/linux/opendir.c    |  15 +++-
+ sysdeps/unix/sysv/linux/readdir64.c  | 104 +++++++++++++++++----------
+ 4 files changed, 79 insertions(+), 135 deletions(-)
+
+diff --git a/sysdeps/unix/sysv/linux/getdents64.c b/sysdeps/unix/sysv/linux/getdents64.c
+index 6323e003b3..38285e9f4b 100644
+--- a/sysdeps/unix/sysv/linux/getdents64.c
++++ b/sysdeps/unix/sysv/linux/getdents64.c
+@@ -36,97 +36,4 @@ weak_alias (__getdents64, getdents64)
+ 
+ #if _DIRENT_MATCHES_DIRENT64
+ strong_alias (__getdents64, __getdents)
+-#else
+-# include <shlib-compat.h>
+-
+-# if SHLIB_COMPAT(libc, GLIBC_2_1, GLIBC_2_2)
+-#  include <olddirent.h>
+-#  include <unistd.h>
+-
+-static ssize_t
+-handle_overflow (int fd, __off64_t offset, ssize_t count)
+-{
+-  /* If this is the first entry in the buffer, we can report the
+-     error.  */
+-  if (offset == 0)
+-    {
+-      __set_errno (EOVERFLOW);
+-      return -1;
+-    }
+-
+-  /* Otherwise, seek to the overflowing entry, so that the next call
+-     will report the error, and return the data read so far.  */
+-  if (__lseek64 (fd, offset, SEEK_SET) != 0)
+-    return -1;
+-  return count;
+-}
+-
+-ssize_t
+-__old_getdents64 (int fd, char *buf, size_t nbytes)
+-{
+-  /* We do not move the individual directory entries.  This is only
+-     possible if the target type (struct __old_dirent64) is smaller
+-     than the source type.  */
+-  _Static_assert (offsetof (struct __old_dirent64, d_name)
+-		  <= offsetof (struct dirent64, d_name),
+-		  "__old_dirent64 is larger than dirent64");
+-  _Static_assert (__alignof__ (struct __old_dirent64)
+-		  <= __alignof__ (struct dirent64),
+-		  "alignment of __old_dirent64 is larger than dirent64");
+-
+-  ssize_t retval = INLINE_SYSCALL_CALL (getdents64, fd, buf, nbytes);
+-  if (retval > 0)
+-    {
+-      /* This is the marker for the first entry.  Offset 0 is reserved
+-	 for the first entry (see rewinddir).  Here, we use it as a
+-	 marker for the first entry in the buffer.  We never actually
+-	 seek to offset 0 because handle_overflow reports the error
+-	 directly, so it does not matter that the offset is incorrect
+-	 if entries have been read from the descriptor before (so that
+-	 the descriptor is not actually at offset 0).  */
+-      __off64_t previous_offset = 0;
+-
+-      char *p = buf;
+-      char *end = buf + retval;
+-      while (p < end)
+-	{
+-	  struct dirent64 *source = (struct dirent64 *) p;
+-
+-	  /* Copy out the fixed-size data.  */
+-	  __ino_t ino = source->d_ino;
+-	  __off64_t offset = source->d_off;
+-	  unsigned int reclen = source->d_reclen;
+-	  unsigned char type = source->d_type;
+-
+-	  /* Check for ino_t overflow.  */
+-	  if (__glibc_unlikely (ino != source->d_ino))
+-	    return handle_overflow (fd, previous_offset, p - buf);
+-
+-	  /* Convert to the target layout.  Use a separate struct and
+-	     memcpy to side-step aliasing issues.  */
+-	  struct __old_dirent64 result;
+-	  result.d_ino = ino;
+-	  result.d_off = offset;
+-	  result.d_reclen = reclen;
+-	  result.d_type = type;
+-
+-	  /* Write the fixed-sized part of the result to the
+-	     buffer.  */
+-	  size_t result_name_offset = offsetof (struct __old_dirent64, d_name);
+-	  memcpy (p, &result, result_name_offset);
+-
+-	  /* Adjust the position of the name if necessary.  Copy
+-	     everything until the end of the record, including the
+-	     terminating NUL byte.  */
+-	  if (result_name_offset != offsetof (struct dirent64, d_name))
+-	    memmove (p + result_name_offset, source->d_name,
+-		     reclen - offsetof (struct dirent64, d_name));
+-
+-	  p += reclen;
+-	  previous_offset = offset;
+-	}
+-     }
+-  return retval;
+-}
+-# endif /* SHLIB_COMPAT(libc, GLIBC_2_1, GLIBC_2_2)  */
+ #endif /* _DIRENT_MATCHES_DIRENT64  */
+diff --git a/sysdeps/unix/sysv/linux/olddirent.h b/sysdeps/unix/sysv/linux/olddirent.h
+index 42ab593c4d..b7c51d5ccc 100644
+--- a/sysdeps/unix/sysv/linux/olddirent.h
++++ b/sysdeps/unix/sysv/linux/olddirent.h
+@@ -36,8 +36,6 @@ extern struct __old_dirent64 *__old_readdir64_unlocked (DIR *__dirp)
+         attribute_hidden;
+ extern int __old_readdir64_r (DIR *__dirp, struct __old_dirent64 *__entry,
+ 			  struct __old_dirent64 **__result);
+-extern __ssize_t __old_getdents64 (int __fd, char *__buf, size_t __nbytes)
+-	attribute_hidden;
+ int __old_scandir64 (const char * __dir,
+ 		     struct __old_dirent64 *** __namelist,
+ 		     int (*__selector) (const struct __old_dirent64 *),
+diff --git a/sysdeps/unix/sysv/linux/opendir.c b/sysdeps/unix/sysv/linux/opendir.c
+index 56365f9da5..de722c98e1 100644
+--- a/sysdeps/unix/sysv/linux/opendir.c
++++ b/sysdeps/unix/sysv/linux/opendir.c
+@@ -23,6 +23,11 @@
+ 
+ #include <not-cancel.h>
+ 
++#include <shlib-compat.h>
++#if SHLIB_COMPAT(libc, GLIBC_2_1, GLIBC_2_2)
++# include <olddirent.h>
++#endif
++
+ enum {
+   opendir_oflags = O_RDONLY|O_NDELAY|O_DIRECTORY|O_LARGEFILE|O_CLOEXEC
+ };
+@@ -128,7 +133,15 @@ __alloc_dir (int fd, bool close_fd, int flags,
+      expand the buffer if required.  */
+   enum
+     {
+-      tbuffer_size = sizeof (struct dirent) + NAME_MAX + 1
++      tbuffer_size =
++# if SHLIB_COMPAT(libc, GLIBC_2_1, GLIBC_2_2)
++      /* This is used on compat readdir64.  */
++		     MAX (sizeof (struct dirent),
++			  sizeof (struct __old_dirent64))
++# else
++		     sizeof (struct dirent)
++# endif
++                     + NAME_MAX + 1
+     };
+   dirp->tbuffer = malloc (tbuffer_size);
+   if (dirp->tbuffer == NULL)
+diff --git a/sysdeps/unix/sysv/linux/readdir64.c b/sysdeps/unix/sysv/linux/readdir64.c
+index 8869e49150..7ecc8c1b16 100644
+--- a/sysdeps/unix/sysv/linux/readdir64.c
++++ b/sysdeps/unix/sysv/linux/readdir64.c
+@@ -99,57 +99,83 @@ versioned_symbol (libc, __readdir64, readdir64, GLIBC_2_2);
+ # if SHLIB_COMPAT(libc, GLIBC_2_1, GLIBC_2_2)
+ #  include <olddirent.h>
+ 
++/* Translate the DP64 entry to the old LFS one in the translation buffer
++   at dirstream DS.  Return true is the translation was possible or
++   false if either an internal fields can be represented in the non-LFS
++   entry or if the translation can not be resized.  */
++static bool
++dirstream_old_entry (struct __dirstream *ds, const struct dirent64 *dp64)
++{
++  /* Check for overflow.  */
++  ino_t d_ino = dp64->d_ino;
++  if (d_ino != dp64->d_ino)
++    return false;
++
++  /* Expand the translation buffer to hold the new namesize.  */
++  size_t d_reclen = sizeof (struct __old_dirent64)
++		    + dp64->d_reclen - offsetof (struct dirent64, d_name);
++  if (d_reclen > ds->tbuffer_size)
++    {
++      char *newbuffer = realloc (ds->tbuffer, d_reclen);
++      if (newbuffer == NULL)
++	return false;
++      ds->tbuffer = newbuffer;
++      ds->tbuffer_size = d_reclen;
++    }
++
++  struct __old_dirent64 *olddp64 = (struct __old_dirent64 *) ds->tbuffer;
++
++  olddp64->d_off = dp64->d_off;
++  olddp64->d_ino = dp64->d_ino;
++  olddp64->d_reclen = dp64->d_reclen;
++  olddp64->d_type = dp64->d_type;
++  memcpy (olddp64->d_name, dp64->d_name,
++	  dp64->d_reclen - offsetof (struct dirent64, d_name));
++
++  return true;
++}
++
+ attribute_compat_text_section
+ struct __old_dirent64 *
+ __old_readdir64_unlocked (DIR *dirp)
+ {
+-  struct __old_dirent64 *dp;
+-  int saved_errno = errno;
++  const int saved_errno = errno;
+ 
+-  do
++  if (dirp->offset >= dirp->size)
+     {
+-      size_t reclen;
+-
+-      if (dirp->offset >= dirp->size)
++      /* We've emptied out our buffer.  Refill it.  */
++      ssize_t bytes = __getdents64 (dirp->fd, dirp->data, dirp->allocation);
++      if (bytes <= 0)
+ 	{
+-	  /* We've emptied out our buffer.  Refill it.  */
+-
+-	  size_t maxread = dirp->allocation;
+-	  ssize_t bytes;
+-
+-	  bytes = __old_getdents64 (dirp->fd, dirp->data, maxread);
+-	  if (bytes <= 0)
+-	    {
+-	      /* On some systems getdents fails with ENOENT when the
+-		 open directory has been rmdir'd already.  POSIX.1
+-		 requires that we treat this condition like normal EOF.  */
+-	      if (bytes < 0 && errno == ENOENT)
+-		bytes = 0;
+-
+-	      /* Don't modifiy errno when reaching EOF.  */
+-	      if (bytes == 0)
+-		__set_errno (saved_errno);
+-	      dp = NULL;
+-	      break;
+-	    }
+-	  dirp->size = (size_t) bytes;
+-
+-	  /* Reset the offset into the buffer.  */
+-	  dirp->offset = 0;
+-	}
+-
+-      dp = (struct __old_dirent64 *) &dirp->data[dirp->offset];
++	  /* On some systems getdents fails with ENOENT when the
++	     open directory has been rmdir'd already.  POSIX.1
++	     requires that we treat this condition like normal EOF.  */
++	  if (bytes < 0 && errno == ENOENT)
++	    bytes = 0;
+ 
+-      reclen = dp->d_reclen;
++	  /* Don't modifiy errno when reaching EOF.  */
++	  if (bytes == 0)
++	    __set_errno (saved_errno);
++	  return NULL;
++	}
++      dirp->size = bytes;
+ 
+-      dirp->offset += reclen;
++      /* Reset the offset into the buffer.  */
++      dirp->offset = 0;
++    }
+ 
+-      dirp->filepos = dp->d_off;
++  struct dirent64 *dp64 = (struct dirent64 *) &dirp->data[dirp->offset];
++  dirp->offset += dp64->d_reclen;
+ 
+-      /* Skip deleted files.  */
+-    } while (dp->d_ino == 0);
++  /* Skip entries which might overflow d_ino or for memory allocation failure
++     in case of large file names.  */
++  if (dirstream_old_entry (dirp, dp64))
++    {
++      dirp->filepos = dp64->d_off;
++      return (struct __old_dirent64 *) dirp->tbuffer;
++    }
+ 
+-  return dp;
++  return NULL;
+ }
+ 
+ attribute_compat_text_section
+-- 
+2.32.0
+
