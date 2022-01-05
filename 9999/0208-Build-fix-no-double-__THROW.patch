@@ -1,0 +1,29 @@
+From fc24fb7c47dbe4e279a3853ee6eff6565348ca47 Mon Sep 17 00:00:00 2001
+From: Mike Gilbert <floppym@gentoo.org>
+Date: Wed, 5 Jan 2022 22:11:49 +0100
+Subject: [PATCH] Build fix (no double __THROW)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Signed-off-by: Andreas K. Hüttel <dilfridge@gentoo.org>
+---
+ dirent/dirent.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/dirent/dirent.h b/dirent/dirent.h
+index 8ad5fbf430..eed030b379 100644
+--- a/dirent/dirent.h
++++ b/dirent/dirent.h
+@@ -363,7 +363,7 @@ extern __ssize_t __REDIRECT_NTH (getdirentries,
+ 				  size_t __nbytes,
+ 				  __off64_t *__restrict __basep),
+ 				 getdirentries64)
+-     __THROW __nonnull ((2, 4))
++     __nonnull ((2, 4))
+      __attribute_deprecated_msg__ ("Use getdents64 instead");
+ #  else
+ #   define getdirentries getdirentries64
+-- 
+2.32.0
+
