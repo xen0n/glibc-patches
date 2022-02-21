@@ -1,7 +1,7 @@
-From 1f714c474eb248b3fa2c84f3b0f22cc509c0e6c9 Mon Sep 17 00:00:00 2001
+From 57babb0afaa90263a7ea416aa9dc3734bb8ceacc Mon Sep 17 00:00:00 2001
 From: Sam James <sam@gentoo.org>
 Date: Wed, 1 Dec 2021 14:58:40 +0000
-Subject: [PATCH] clone-internal.c: make clone3 syscall optional
+Subject: [PATCH 06/14] clone-internal.c: make clone3 syscall optional
 
 We're disabling clone3 for now _CONDITIONALLY_ (not by default) to allow
 compatibility with applications using older Electron.
@@ -31,7 +31,7 @@ Signed-off-by: Sam James <sam@gentoo.org>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/sysdeps/unix/sysv/linux/clone-internal.c b/sysdeps/unix/sysv/linux/clone-internal.c
-index 979f7880be..c5566daf73 100644
+index a71effcbd3..60efe1f453 100644
 --- a/sysdeps/unix/sysv/linux/clone-internal.c
 +++ b/sysdeps/unix/sysv/linux/clone-internal.c
 @@ -48,7 +48,7 @@ __clone_internal (struct clone_args *cl_args,
@@ -44,5 +44,5 @@ index 979f7880be..c5566daf73 100644
    int saved_errno = errno;
    ret = __clone3 (cl_args, sizeof (*cl_args), func, arg);
 -- 
-2.32.0
+2.34.1
 

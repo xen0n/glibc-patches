@@ -1,7 +1,7 @@
-From 7856a2b7ae88602bc9ee65e08fe652b6a6ad5f7e Mon Sep 17 00:00:00 2001
+From 58b842de801f64de1d323ecceaf24b7cd30cbb87 Mon Sep 17 00:00:00 2001
 From: Adhemerval Zanella <adhemerval.zanella@linaro.org>
 Date: Tue, 20 Oct 2020 12:18:56 -0300
-Subject: [PATCH 1/7] linux: Do not skip entries with zero d_ino values [BZ
+Subject: [PATCH 07/14] linux: Do not skip entries with zero d_ino values [BZ
  #12165]
 
 According to Linux commit 2adc376c55194 (vfs: avoid creation of inode
@@ -18,7 +18,7 @@ Checked on x86_64-linux-gnu and i686-linux-gnu.
  2 files changed, 44 insertions(+), 74 deletions(-)
 
 diff --git a/sysdeps/unix/sysv/linux/readdir.c b/sysdeps/unix/sysv/linux/readdir.c
-index b480135164..c0619ce06f 100644
+index c31f349639..7743f50071 100644
 --- a/sysdeps/unix/sysv/linux/readdir.c
 +++ b/sysdeps/unix/sysv/linux/readdir.c
 @@ -25,51 +25,36 @@
@@ -96,7 +96,7 @@ index b480135164..c0619ce06f 100644
    return dp;
  }
 diff --git a/sysdeps/unix/sysv/linux/readdir64.c b/sysdeps/unix/sysv/linux/readdir64.c
-index 52b11eb9d9..3aea0b1df1 100644
+index e876d84b02..d990a36e4e 100644
 --- a/sysdeps/unix/sysv/linux/readdir64.c
 +++ b/sysdeps/unix/sysv/linux/readdir64.c
 @@ -30,55 +30,40 @@
@@ -178,5 +178,5 @@ index 52b11eb9d9..3aea0b1df1 100644
  #if IS_IN (libc)
    __libc_lock_unlock (dirp->lock);
 -- 
-2.32.0
+2.34.1
 

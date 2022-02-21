@@ -1,7 +1,8 @@
-From 46b9383118182cb2ac2e81637e00fde6c21097bb Mon Sep 17 00:00:00 2001
+From a5aee8e0e844f9f9cf8df0a41e67cddf8de7540f Mon Sep 17 00:00:00 2001
 From: Adhemerval Zanella <adhemerval.zanella@linaro.org>
 Date: Tue, 20 Oct 2020 16:00:43 -0300
-Subject: [PATCH 6/7] linux: Use getdents64 on readdir64 compat implementation
+Subject: [PATCH 12/14] linux: Use getdents64 on readdir64 compat
+ implementation
 
 It uses a similar strategy from the non-LFS readdir that also
 uses getdents64 internally and uses a translation buffer to return
@@ -18,7 +19,7 @@ Checked on i686-linux-gnu.
  4 files changed, 79 insertions(+), 135 deletions(-)
 
 diff --git a/sysdeps/unix/sysv/linux/getdents64.c b/sysdeps/unix/sysv/linux/getdents64.c
-index 6323e003b3..38285e9f4b 100644
+index 510a586859..92481526c5 100644
 --- a/sysdeps/unix/sysv/linux/getdents64.c
 +++ b/sysdeps/unix/sysv/linux/getdents64.c
 @@ -36,97 +36,4 @@ weak_alias (__getdents64, getdents64)
@@ -120,7 +121,7 @@ index 6323e003b3..38285e9f4b 100644
 -# endif /* SHLIB_COMPAT(libc, GLIBC_2_1, GLIBC_2_2)  */
  #endif /* _DIRENT_MATCHES_DIRENT64  */
 diff --git a/sysdeps/unix/sysv/linux/olddirent.h b/sysdeps/unix/sysv/linux/olddirent.h
-index 42ab593c4d..b7c51d5ccc 100644
+index 00c84b9521..68aafd7c02 100644
 --- a/sysdeps/unix/sysv/linux/olddirent.h
 +++ b/sysdeps/unix/sysv/linux/olddirent.h
 @@ -36,8 +36,6 @@ extern struct __old_dirent64 *__old_readdir64_unlocked (DIR *__dirp)
@@ -133,7 +134,7 @@ index 42ab593c4d..b7c51d5ccc 100644
  		     struct __old_dirent64 *** __namelist,
  		     int (*__selector) (const struct __old_dirent64 *),
 diff --git a/sysdeps/unix/sysv/linux/opendir.c b/sysdeps/unix/sysv/linux/opendir.c
-index 56365f9da5..de722c98e1 100644
+index 9a0b7ab4c4..df40b0a64e 100644
 --- a/sysdeps/unix/sysv/linux/opendir.c
 +++ b/sysdeps/unix/sysv/linux/opendir.c
 @@ -23,6 +23,11 @@
@@ -166,7 +167,7 @@ index 56365f9da5..de722c98e1 100644
    dirp->tbuffer = malloc (tbuffer_size);
    if (dirp->tbuffer == NULL)
 diff --git a/sysdeps/unix/sysv/linux/readdir64.c b/sysdeps/unix/sysv/linux/readdir64.c
-index 8869e49150..7ecc8c1b16 100644
+index dbf6a8c54d..4b41299c6c 100644
 --- a/sysdeps/unix/sysv/linux/readdir64.c
 +++ b/sysdeps/unix/sysv/linux/readdir64.c
 @@ -99,57 +99,83 @@ versioned_symbol (libc, __readdir64, readdir64, GLIBC_2_2);
@@ -293,5 +294,5 @@ index 8869e49150..7ecc8c1b16 100644
  
  attribute_compat_text_section
 -- 
-2.32.0
+2.34.1
 

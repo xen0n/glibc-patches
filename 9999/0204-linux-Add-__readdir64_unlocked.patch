@@ -1,7 +1,7 @@
-From 1524804c8133564c204340a0d618f04c585d7706 Mon Sep 17 00:00:00 2001
+From 333f932faec29e5c9238d3d1f8584acc25d986c0 Mon Sep 17 00:00:00 2001
 From: Adhemerval Zanella <adhemerval.zanella@linaro.org>
 Date: Mon, 13 Apr 2020 08:35:40 -0300
-Subject: [PATCH 4/7] linux: Add __readdir64_unlocked
+Subject: [PATCH 10/14] linux: Add __readdir64_unlocked
 
 And use it on readdir_r implementation.
 
@@ -25,7 +25,7 @@ index d7567f5e86..0c6715d0e4 100644
  libc_hidden_proto (__readdir64)
  extern int __readdir_r (DIR *__dirp, struct dirent *__entry,
 diff --git a/sysdeps/unix/sysv/linux/readdir64.c b/sysdeps/unix/sysv/linux/readdir64.c
-index 3aea0b1df1..5519487ede 100644
+index d990a36e4e..c4539f6d96 100644
 --- a/sysdeps/unix/sysv/linux/readdir64.c
 +++ b/sysdeps/unix/sysv/linux/readdir64.c
 @@ -28,14 +28,10 @@
@@ -66,7 +66,7 @@ index 3aea0b1df1..5519487ede 100644
    __libc_lock_unlock (dirp->lock);
  #endif
 diff --git a/sysdeps/unix/sysv/linux/readdir64_r.c b/sysdeps/unix/sysv/linux/readdir64_r.c
-index 073a6453d1..058d401279 100644
+index afd7f9af0f..32962a176a 100644
 --- a/sysdeps/unix/sysv/linux/readdir64_r.c
 +++ b/sysdeps/unix/sysv/linux/readdir64_r.c
 @@ -32,89 +32,43 @@ __readdir64_r (DIR *dirp, struct dirent64 *entry, struct dirent64 **result)
@@ -177,5 +177,5 @@ index 073a6453d1..058d401279 100644
  
  
 -- 
-2.32.0
+2.34.1
 

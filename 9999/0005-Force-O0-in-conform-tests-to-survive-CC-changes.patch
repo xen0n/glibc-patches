@@ -1,7 +1,7 @@
-From 21bbee17488159cff563f90ed83aee59703cb21e Mon Sep 17 00:00:00 2001
+From 16337b6a4a14c8eb7ae57341aa04d7d571f00783 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Andreas=20K=2E=20H=C3=BCttel?= <dilfridge@gentoo.org>
 Date: Fri, 14 Dec 2018 20:43:04 +0100
-Subject: [PATCH 5/6] Force -O0 in conform tests to survive $CC changes
+Subject: [PATCH 04/14] Force -O0 in conform tests to survive $CC changes
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -22,10 +22,10 @@ Signed-off-by: Andreas K. Hüttel <dilfridge@gentoo.org>
  2 files changed, 7 insertions(+), 3 deletions(-)
 
 diff --git a/conform/conformtest.py b/conform/conformtest.py
-index f0405b7186..14d342e4c4 100644
+index 94a7ee110f..90c81ac88e 100644
 --- a/conform/conformtest.py
 +++ b/conform/conformtest.py
-@@ -562,7 +562,7 @@ class HeaderTests(object):
+@@ -566,7 +566,7 @@ class HeaderTests(object):
          o_file = os.path.join(self.temp_dir, 'test.o')
          with open(c_file, 'w') as c_file_out:
              c_file_out.write('#include <%s>\n%s' % (self.header, text))
@@ -34,7 +34,7 @@ index f0405b7186..14d342e4c4 100644
          try:
              subprocess.check_call(cmd, shell=True)
          except subprocess.CalledProcessError:
-@@ -613,7 +613,9 @@ class HeaderTests(object):
+@@ -620,7 +620,9 @@ class HeaderTests(object):
          out_file = os.path.join(self.temp_dir, 'namespace-out')
          with open(c_file, 'w') as c_file_out:
              c_file_out.write('#include <%s>\n' % self.header)
@@ -46,7 +46,7 @@ index f0405b7186..14d342e4c4 100644
          subprocess.check_call(cmd, shell=True)
          bad_tokens = set()
 diff --git a/conform/linknamespace.py b/conform/linknamespace.py
-index 66b16e244a..78c80d7645 100644
+index f7fe3a7a0a..ad87fd2a6d 100644
 --- a/conform/linknamespace.py
 +++ b/conform/linknamespace.py
 @@ -157,7 +157,9 @@ def main():
@@ -61,5 +61,5 @@ index 66b16e244a..78c80d7645 100644
                                                    args.header)
      with tempfile.TemporaryDirectory() as temp_dir:
 -- 
-2.31.1
+2.34.1
 

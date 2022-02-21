@@ -1,8 +1,8 @@
-From 10aed4ee2c685613d190434649bbac896b364680 Mon Sep 17 00:00:00 2001
+From 93e05c56a80d3145e3552ea611f2bd8c755d5887 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Andreas=20K=2E=20H=C3=BCttel?= <dilfridge@gentoo.org>
 Date: Tue, 29 Aug 2017 22:58:50 +0200
-Subject: [PATCH 2/6] Revert " * sysdeps/posix/getaddrinfo.c (gaih_inet): Only
- use gethostbyname4_r"
+Subject: [PATCH 02/14] Revert " * sysdeps/posix/getaddrinfo.c (gaih_inet):
+ Only use gethostbyname4_r"
 
 This reverts commit 8479f23aa1d5e5477a37f46823856bdafaedfa46.
 
@@ -17,7 +17,7 @@ This makes tst-nss-files-hosts-multi fail. Disable it.
  2 files changed, 2 insertions(+), 8 deletions(-)
 
 diff --git a/nss/Makefile b/nss/Makefile
-index bccf9f2806..c90fee2e4c 100644
+index 552e5d03e1..35ec106e0c 100644
 --- a/nss/Makefile
 +++ b/nss/Makefile
 @@ -74,7 +74,6 @@ tests-container = \
@@ -29,7 +29,7 @@ index bccf9f2806..c90fee2e4c 100644
  tests += tst-nss-files-alias-leak
  tests += tst-nss-files-alias-truncated
 diff --git a/sysdeps/posix/getaddrinfo.c b/sysdeps/posix/getaddrinfo.c
-index 838a68f022..1bb2263225 100644
+index 18dccd5924..2cca006f3d 100644
 --- a/sysdeps/posix/getaddrinfo.c
 +++ b/sysdeps/posix/getaddrinfo.c
 @@ -733,13 +733,8 @@ gaih_inet (const char *name, const struct gaih_service *service,
@@ -49,5 +49,5 @@ index 838a68f022..1bb2263225 100644
  		{
  		  while (1)
 -- 
-2.31.1
+2.34.1
 
