@@ -1,4 +1,4 @@
-From 93e05c56a80d3145e3552ea611f2bd8c755d5887 Mon Sep 17 00:00:00 2001
+From afd71f4f5c995d68a00f0d34210d80eaf08dbed8 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Andreas=20K=2E=20H=C3=BCttel?= <dilfridge@gentoo.org>
 Date: Tue, 29 Aug 2017 22:58:50 +0200
 Subject: [PATCH 02/14] Revert " * sysdeps/posix/getaddrinfo.c (gaih_inet):
@@ -13,14 +13,14 @@ See for the background
 This makes tst-nss-files-hosts-multi fail. Disable it.
 ---
  nss/Makefile                | 1 -
- sysdeps/posix/getaddrinfo.c | 9 ++-------
- 2 files changed, 2 insertions(+), 8 deletions(-)
+ sysdeps/posix/getaddrinfo.c | 8 ++------
+ 2 files changed, 2 insertions(+), 7 deletions(-)
 
 diff --git a/nss/Makefile b/nss/Makefile
-index 552e5d03e1..35ec106e0c 100644
+index d8b06b44fb..e3639f78ec 100644
 --- a/nss/Makefile
 +++ b/nss/Makefile
-@@ -74,7 +74,6 @@ tests-container = \
+@@ -85,7 +85,6 @@ tests-container := \
  # Tests which need libdl
  ifeq (yes,$(build-shared))
  tests += tst-nss-files-hosts-erange
@@ -29,25 +29,24 @@ index 552e5d03e1..35ec106e0c 100644
  tests += tst-nss-files-alias-leak
  tests += tst-nss-files-alias-truncated
 diff --git a/sysdeps/posix/getaddrinfo.c b/sysdeps/posix/getaddrinfo.c
-index 18dccd5924..2cca006f3d 100644
+index bcff909b2f..09954dee22 100644
 --- a/sysdeps/posix/getaddrinfo.c
 +++ b/sysdeps/posix/getaddrinfo.c
-@@ -733,13 +733,8 @@ gaih_inet (const char *name, const struct gaih_service *service,
- 	  while (!no_more)
- 	    {
- 	      no_data = 0;
--	      nss_gethostbyname4_r *fct4 = NULL;
+@@ -623,12 +623,8 @@ get_nss_addresses (const char *name, const struct addrinfo *req,
+ 	}
+ 
+       no_data = 0;
+-      nss_gethostbyname4_r *fct4 = NULL;
 -
--	      /* gethostbyname4_r sends out parallel A and AAAA queries and
--		 is thus only suitable for PF_UNSPEC.  */
--	      if (req->ai_family == PF_UNSPEC)
--		fct4 = __nss_lookup_function (nip, "gethostbyname4_r");
--
-+	      nss_gethostbyname4_r *fct4
-+		= __nss_lookup_function (nip, "gethostbyname4_r");
- 	      if (fct4 != NULL)
- 		{
- 		  while (1)
+-      /* gethostbyname4_r sends out parallel A and AAAA queries and
+-	 is thus only suitable for PF_UNSPEC.  */
+-      if (req->ai_family == PF_UNSPEC)
+-	fct4 = __nss_lookup_function (nip, "gethostbyname4_r");
++      nss_gethostbyname4_r *fct4
++	= __nss_lookup_function (nip, "gethostbyname4_r");
+ 
+       if (fct4 != NULL)
+ 	{
 -- 
-2.34.1
+2.35.1
 

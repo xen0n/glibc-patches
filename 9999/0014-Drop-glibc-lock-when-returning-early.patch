@@ -1,7 +1,7 @@
-From fd939e8740a97b3ffc5816cebb7be947c7b560af Mon Sep 17 00:00:00 2001
+From f0967c21f82d9b6db6faa41315f668f56e38562f Mon Sep 17 00:00:00 2001
 From: Sam James <sam@gentoo.org>
 Date: Mon, 7 Mar 2022 01:59:53 +0100
-Subject: [PATCH] Drop glibc lock when returning early
+Subject: [PATCH 14/14] Drop glibc lock when returning early
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -32,5 +32,5 @@ index 133682b858..5f58baf34b 100644
    if (local->root_ino != 0 && (str.st_ino != local->root_ino
                                || str.st_dev != local->root_dev))
 -- 
-2.34.1
+2.35.1
 

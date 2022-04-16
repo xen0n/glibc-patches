@@ -1,4 +1,4 @@
-From 6e27ad8827f67f742aa53b72c141002085e7e1a8 Mon Sep 17 00:00:00 2001
+From 4a1235321c3749726d4f0b3ed0f0769a40d714f9 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Andreas=20K=2E=20H=C3=BCttel?= <dilfridge@gentoo.org>
 Date: Mon, 22 Oct 2018 22:34:13 +0200
 Subject: [PATCH 03/14] Adapt to Gentoo-specific /etc/mail/aliases
@@ -104,5 +104,5 @@ index 4bf6fe0834..1548eba2ad 100644
    /* valgrind needs a temporary directory in the chroot.  */
    {
 -- 
-2.34.1
+2.35.1
 

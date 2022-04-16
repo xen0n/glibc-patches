@@ -1,7 +1,7 @@
-From 7032e8bf35b229ff759286435f1f51b5588b56ed Mon Sep 17 00:00:00 2001
+From ce54d71af85a735b3ddf29bde1f6ee6e0844d352 Mon Sep 17 00:00:00 2001
 From: Adhemerval Zanella <adhemerval.zanella@linaro.org>
 Date: Sat, 12 Feb 2022 19:40:58 +0100
-Subject: [PATCH 14/14] Fix segfault in getpwuid when stat fails (BZ #28752)
+Subject: [PATCH 13/14] Fix segfault in getpwuid when stat fails (BZ #28752)
 
 [azanella proposed this patch to sam when discussing the issue,
  but it's not anywhere upstream yet- dilfridge]
@@ -34,5 +34,5 @@ index d56c5b798d..133682b858 100644
        /* Change detected; disable reloading and return current state.  */
        atomic_store_release (&local->data.reload_disabled, 1);
 -- 
-2.34.1
+2.35.1
 

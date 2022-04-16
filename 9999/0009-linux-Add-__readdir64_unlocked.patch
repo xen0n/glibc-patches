@@ -1,86 +1,83 @@
-From b69d95b17a828f5f39b577c00ff0d02e4c0a5da6 Mon Sep 17 00:00:00 2001
+From 91dd23b0cf7a3aa11fae6cd3e71e9d49409f17b0 Mon Sep 17 00:00:00 2001
 From: Adhemerval Zanella <adhemerval.zanella@linaro.org>
-Date: Tue, 14 Apr 2020 11:14:22 -0300
-Subject: [PATCH 11/14] linux: Add __old_readdir64_unlocked
+Date: Mon, 13 Apr 2020 08:35:40 -0300
+Subject: [PATCH 09/14] linux: Add __readdir64_unlocked
 
-And use it __old_readdir64_r.
+And use it on readdir_r implementation.
 
 Checked on i686-linux-gnu.
 ---
- sysdeps/unix/sysv/linux/olddirent.h   |  2 +
- sysdeps/unix/sysv/linux/readdir64.c   | 21 +++++--
- sysdeps/unix/sysv/linux/readdir64_r.c | 79 ++++++---------------------
- 3 files changed, 35 insertions(+), 67 deletions(-)
+ include/dirent.h                      |  1 +
+ sysdeps/unix/sysv/linux/readdir64.c   | 20 +++++--
+ sysdeps/unix/sysv/linux/readdir64_r.c | 80 ++++++---------------------
+ 3 files changed, 33 insertions(+), 68 deletions(-)
 
-diff --git a/sysdeps/unix/sysv/linux/olddirent.h b/sysdeps/unix/sysv/linux/olddirent.h
-index 9a22609177..00c84b9521 100644
---- a/sysdeps/unix/sysv/linux/olddirent.h
-+++ b/sysdeps/unix/sysv/linux/olddirent.h
-@@ -32,6 +32,8 @@ struct __old_dirent64
- /* Now define the internal interfaces.  */
- extern struct __old_dirent64 *__old_readdir64 (DIR *__dirp);
- libc_hidden_proto (__old_readdir64);
-+extern struct __old_dirent64 *__old_readdir64_unlocked (DIR *__dirp)
-+        attribute_hidden;
- extern int __old_readdir64_r (DIR *__dirp, struct __old_dirent64 *__entry,
- 			  struct __old_dirent64 **__result);
- extern __ssize_t __old_getdents64 (int __fd, char *__buf, size_t __nbytes)
+diff --git a/include/dirent.h b/include/dirent.h
+index d7567f5e86..0c6715d0e4 100644
+--- a/include/dirent.h
++++ b/include/dirent.h
+@@ -21,6 +21,7 @@ extern DIR *__fdopendir (int __fd) attribute_hidden;
+ extern int __closedir (DIR *__dirp) attribute_hidden;
+ extern struct dirent *__readdir (DIR *__dirp) attribute_hidden;
+ extern struct dirent *__readdir_unlocked (DIR *__dirp) attribute_hidden;
++extern struct dirent64 *__readdir64_unlocked (DIR *__dirp) attribute_hidden;
+ extern struct dirent64 *__readdir64 (DIR *__dirp);
+ libc_hidden_proto (__readdir64)
+ extern int __readdir_r (DIR *__dirp, struct dirent *__entry,
 diff --git a/sysdeps/unix/sysv/linux/readdir64.c b/sysdeps/unix/sysv/linux/readdir64.c
-index c4539f6d96..dbf6a8c54d 100644
+index d990a36e4e..c4539f6d96 100644
 --- a/sysdeps/unix/sysv/linux/readdir64.c
 +++ b/sysdeps/unix/sysv/linux/readdir64.c
-@@ -101,15 +101,11 @@ versioned_symbol (libc, __readdir64, readdir64, GLIBC_2_2);
+@@ -28,14 +28,10 @@
  
- attribute_compat_text_section
- struct __old_dirent64 *
--__old_readdir64 (DIR *dirp)
-+__old_readdir64_unlocked (DIR *dirp)
+ /* Read a directory entry from DIRP.  */
+ struct dirent64 *
+-__readdir64 (DIR *dirp)
++__readdir64_unlocked (DIR *dirp)
  {
-   struct __old_dirent64 *dp;
-   int saved_errno = errno;
+   const int saved_errno = errno;
  
 -#if IS_IN (libc)
 -  __libc_lock_lock (dirp->lock);
 -#endif
 -
-   do
+   if (dirp->offset >= dirp->size)
      {
-       size_t reclen;
-@@ -153,6 +149,21 @@ __old_readdir64 (DIR *dirp)
-       /* Skip deleted files.  */
-     } while (dp->d_ino == 0);
+       /* We've emptied out our buffer.  Refill it.  */
+@@ -65,6 +61,20 @@ __readdir64 (DIR *dirp)
+ 
+   dirp->filepos = dp->d_off;
  
 +  return dp;
 +}
 +
-+attribute_compat_text_section
-+struct __old_dirent64 *
-+__old_readdir64 (DIR *dirp)
++struct dirent64 *
++__readdir64 (DIR *dirp)
 +{
-+  struct __old_dirent64 *dp;
++  struct dirent64 *dp;
 +
 +#if IS_IN (libc)
 +  __libc_lock_lock (dirp->lock);
 +#endif
 +
-+  dp = __old_readdir64_unlocked (dirp);
++  dp = __readdir64_unlocked (dirp);
 +
  #if IS_IN (libc)
    __libc_lock_unlock (dirp->lock);
  #endif
 diff --git a/sysdeps/unix/sysv/linux/readdir64_r.c b/sysdeps/unix/sysv/linux/readdir64_r.c
-index 32962a176a..699d120b76 100644
+index afd7f9af0f..32962a176a 100644
 --- a/sysdeps/unix/sysv/linux/readdir64_r.c
 +++ b/sysdeps/unix/sysv/linux/readdir64_r.c
-@@ -91,89 +91,44 @@ __old_readdir64_r (DIR *dirp, struct __old_dirent64 *entry,
+@@ -32,89 +32,43 @@ __readdir64_r (DIR *dirp, struct dirent64 *entry, struct dirent64 **result)
  {
-   struct __old_dirent64 *dp;
+   struct dirent64 *dp;
    size_t reclen;
 -  const int saved_errno = errno;
 -  int ret;
  
    __libc_lock_lock (dirp->lock);
- 
+-
 -  do
 +  while (1)
      {
@@ -93,7 +90,7 @@ index 32962a176a..699d120b76 100644
 -
 -	  maxread = dirp->allocation;
 -
--	  bytes = __old_getdents64 (dirp->fd, dirp->data, maxread);
+-	  bytes = __getdents64 (dirp->fd, dirp->data, maxread);
 -	  if (bytes <= 0)
 -	    {
 -	      /* On some systems getdents fails with ENOENT when the
@@ -116,20 +113,20 @@ index 32962a176a..699d120b76 100644
 -	  dirp->offset = 0;
 -	}
 -
--      dp = (struct __old_dirent64 *) &dirp->data[dirp->offset];
-+      dp = __old_readdir64_unlocked (dirp);
+-      dp = (struct dirent64 *) &dirp->data[dirp->offset];
++      dp = __readdir64_unlocked (dirp);
 +      if (dp == NULL)
 +	break;
  
        reclen = dp->d_reclen;
-+      if (reclen <= offsetof (struct __old_dirent64, d_name) + NAME_MAX + 1)
++      if (reclen <= offsetof (struct dirent64, d_name) + NAME_MAX + 1)
 +	break;
  
 -      dirp->offset += reclen;
 -
 -      dirp->filepos = dp->d_off;
 -
--      if (reclen > offsetof (struct __old_dirent64, d_name) + NAME_MAX + 1)
+-      if (reclen > offsetof (struct dirent64, d_name) + NAME_MAX + 1)
 +      /* The record is very long.  It could still fit into the caller-supplied
 +	 buffer if we can skip padding at the end.  */
 +      size_t namelen = _D_EXACT_NAMLEN (dp);
@@ -140,7 +137,7 @@ index 32962a176a..699d120b76 100644
 -	     end.  */
 -	  size_t namelen = _D_EXACT_NAMLEN (dp);
 -	  if (namelen <= NAME_MAX)
--	    reclen = offsetof (struct __old_dirent64, d_name) + namelen + 1;
+-	    reclen = offsetof (struct dirent64, d_name) + namelen + 1;
 -	  else
 -	    {
 -	      /* The name is too long.  Ignore this file.  */
@@ -178,7 +175,7 @@ index 32962a176a..699d120b76 100644
 +  return dp != NULL ? 0 : dirp->errcode;
  }
  
- compat_symbol (libc, __old_readdir64_r, readdir64_r, GLIBC_2_1);
+ 
 -- 
-2.34.1
+2.35.1
 

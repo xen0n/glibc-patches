@@ -1,4 +1,4 @@
-From 77b6eec2fbc116152cdc0362448e89a22ea1ae83 Mon Sep 17 00:00:00 2001
+From 4ec3b3446cac3917499fba2c3067dc39bb24bf83 Mon Sep 17 00:00:00 2001
 From: Mike Frysinger <vapier@gentoo.org>
 Date: Tue, 3 Aug 2021 00:34:59 +0200
 Subject: [PATCH 01/14] Disable ldconfig during install
@@ -27,5 +27,5 @@ index b1454882bd..73c3ef1e76 100644
  	  $(elf-objpfx)ldconfig $(addprefix -r ,$(install_root)) \
  				$(slibdir) $(libdir)
 -- 
-2.34.1
+2.35.1
 

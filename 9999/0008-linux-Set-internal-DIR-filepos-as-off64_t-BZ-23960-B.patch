@@ -1,7 +1,7 @@
-From 0afb8fa52cded9c332c31c7a1e62b9f2b04acdf8 Mon Sep 17 00:00:00 2001
+From 90aa2d426422b6acc0e7f2b9d8afa2718098601b Mon Sep 17 00:00:00 2001
 From: Adhemerval Zanella <adhemerval.zanella@linaro.org>
 Date: Mon, 13 Apr 2020 18:09:20 -0300
-Subject: [PATCH 09/14] linux: Set internal DIR filepos as off64_t [BZ #23960,
+Subject: [PATCH 08/14] linux: Set internal DIR filepos as off64_t [BZ #23960,
  BZ #24050]
 
 It allows to obtain the expected entry offset on telldir and set
@@ -490,5 +490,5 @@ index 0000000000..7c45886341
 +
 +#endif /* _TELLDIR_H  */
 -- 
-2.34.1
+2.35.1
 

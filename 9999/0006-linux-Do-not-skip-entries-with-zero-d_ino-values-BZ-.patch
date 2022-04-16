@@ -1,7 +1,7 @@
-From 58b842de801f64de1d323ecceaf24b7cd30cbb87 Mon Sep 17 00:00:00 2001
+From 2a131fefbe72a749fe28b426a37b499bf7255cdf Mon Sep 17 00:00:00 2001
 From: Adhemerval Zanella <adhemerval.zanella@linaro.org>
 Date: Tue, 20 Oct 2020 12:18:56 -0300
-Subject: [PATCH 07/14] linux: Do not skip entries with zero d_ino values [BZ
+Subject: [PATCH 06/14] linux: Do not skip entries with zero d_ino values [BZ
  #12165]
 
 According to Linux commit 2adc376c55194 (vfs: avoid creation of inode
@@ -178,5 +178,5 @@ index e876d84b02..d990a36e4e 100644
  #if IS_IN (libc)
    __libc_lock_unlock (dirp->lock);
 -- 
-2.34.1
+2.35.1
 
